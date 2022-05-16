@@ -96,7 +96,7 @@ export class CdkChaosStack extends cdk.Stack {
       assumedBy: new iam.ServicePrincipal('fis.amazonaws.com'),
       description: 'IAM role to allow EC2 termination',
       inlinePolicies: {
-        DescribeACMCerts: terminateEc2,
+        terminateEc2instances: terminateEc2,
       },
     });
 
