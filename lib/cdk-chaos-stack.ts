@@ -2,6 +2,7 @@ import * as cdk from '@aws-cdk/core';
 import { Vpc, SubnetType } from '@aws-cdk/aws-ec2';
 import * as autoscaling from '@aws-cdk/aws-autoscaling';
 import * as cloudwatch from '@aws-cdk/aws-cloudwatch';
+import * as iam from '@aws-cdk/aws-iam';
 import * as ec2 from '@aws-cdk/aws-ec2';
 import * as elbv2 from '@aws-cdk/aws-elasticloadbalancingv2';
 
@@ -43,6 +44,9 @@ export class CdkChaosStack extends cdk.Stack {
       }),
       minCapacity: 2,
       maxCapacity: 5,
+
+      // Send Metrics to CloudWatch
+      groupMetrics: [autoscaling.GroupMetrics.all()],
     });
 
     // LB definition
@@ -60,10 +64,11 @@ export class CdkChaosStack extends cdk.Stack {
       port: 80,
       targets: [asg],
       healthCheck: {
+        port: '80',
         path: '/',
         unhealthyThresholdCount: 2,
         healthyThresholdCount: 5,
-        interval: cdk.Duration.seconds(30),
+        interval: cdk.Duration.seconds(10),
       },
     });
 
@@ -74,6 +79,26 @@ export class CdkChaosStack extends cdk.Stack {
     asg.scaleOnRequestCount('scalePerRequest', {
       targetRequestsPerMinute: 60,
     });    
+
+    // IAM setup to allow FIS to perform terminate operations
+    // Create IAM permission policy
+    const terminateEc2 = new iam.PolicyDocument({
+      statements: [
+        new iam.PolicyStatement({
+          resources: ['arn:aws:ec2:*:*:instance/*'],
+          actions: ['ec2:TerminateInstances'],
+        }),
+      ],
+    });
+
+    // Create IAM role for FIS
+    const role = new iam.Role(this, 'ec2-terminate-role', {
+      assumedBy: new iam.ServicePrincipal('fis.amazonaws.com'),
+      description: 'IAM role to allow EC2 termination',
+      inlinePolicies: {
+        DescribeACMCerts: terminateEc2,
+      },
+    });
 
     // Output Loadbalancer DNS name
     new cdk.CfnOutput(this, 'albDNS', {

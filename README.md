@@ -1,8 +1,8 @@
-# Welcome to your CDK TypeScript project
+# Chaos testing AWS infra
 
-This is a blank project for CDK development with TypeScript.
+This project uses AWS CDK to define and deploy AWS infrastructure. Using AWS Fault Injection Simulator, this project simulates errors in the infrastrucrture in the pipeline after changes are made to the code.
 
-The `cdk.json` file tells the CDK Toolkit how to execute your app.
+This project uses Typescript as the language for CDK. The stack is defined in ``lib/cdk-chaos-stack.ts``
 
 ## Useful commands
 
