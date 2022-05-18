@@ -93,7 +93,7 @@ export class CdkChaosStack extends cdk.Stack {
     // FIS Stop Condition
 
     const alarm = new cw.Alarm(this, "cw-alarm", {
-      alarmName: "Ec2GroupMinSizeReached",
+      alarmName: "Ec2TooManyTerminating",
       metric: new cw.Metric({
         metricName: "GroupTerminatingInstances",
         namespace: "AWS/AutoScaling",
@@ -140,7 +140,7 @@ export class CdkChaosStack extends cdk.Stack {
         resourceType: "aws:ec2:instance",
         selectionMode: "ALL",
         resourceTags: {
-          "aws:autoscaling:groupName": asg.toString(),
+          "Name": asg.toString(),
         },
         filters: [
           {
