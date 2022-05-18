@@ -1,14 +1,16 @@
 import * as cdk from '@aws-cdk/core';
 import { Vpc, SubnetType } from '@aws-cdk/aws-ec2';
 import * as autoscaling from '@aws-cdk/aws-autoscaling';
-import * as cloudwatch from '@aws-cdk/aws-cloudwatch';
 import * as iam from '@aws-cdk/aws-iam';
 import * as ec2 from '@aws-cdk/aws-ec2';
 import * as elbv2 from '@aws-cdk/aws-elasticloadbalancingv2';
+//import { aws_fis as fis } from "aws-cdk-lib";
+import * as fis from '@aws-cdk/aws-fis';
+import * as cw from '@aws-cdk/aws-cloudwatch'
 
 export class CdkChaosStack extends cdk.Stack {
   constructor(scope: cdk.Construct, id: string, props?: cdk.StackProps) {
-    super(scope, id);
+    super(scope, id, props);
 
     // VPC definition
     const vpc = new Vpc(this, 'chaosVPC',{
@@ -44,10 +46,12 @@ export class CdkChaosStack extends cdk.Stack {
       }),
       minCapacity: 2,
       maxCapacity: 5,
-
       // Send Metrics to CloudWatch
       groupMetrics: [autoscaling.GroupMetrics.all()],
     });
+  
+    // Add tags to ASG resources
+    cdk.Tags.of(asg).add('FIS','True');
 
     // LB definition
     const lb = new elbv2.ApplicationLoadBalancer(this, 'chaosLB', {
@@ -57,6 +61,11 @@ export class CdkChaosStack extends cdk.Stack {
 
     const listener = lb.addListener('Listener', {
       port: 80,
+    });
+    
+    // Output Loadbalancer DNS name
+    new cdk.CfnOutput(this, 'albDNS', {
+      value: lb.loadBalancerDnsName,
     });
 
     // Add ASG as ALB target
@@ -79,8 +88,32 @@ export class CdkChaosStack extends cdk.Stack {
     asg.scaleOnRequestCount('scalePerRequest', {
       targetRequestsPerMinute: 60,
     });    
+    
+    // CloudWatch Setup
+    // FIS Stop Condition
 
-    // IAM setup to allow FIS to perform terminate operations
+    const alarm = new cw.Alarm(this, "cw-alarm", {
+      alarmName: "NetworkInAbnormal",
+      metric: new cw.Metric({
+        metricName: "NetworkIn",
+        namespace: "AWS/EC2",
+      }).with({
+        period: cdk.Duration.seconds(60),
+      }),
+      threshold: 10,
+      evaluationPeriods: 1,
+      treatMissingData: cw.TreatMissingData.NOT_BREACHING,
+      comparisonOperator: cw.ComparisonOperator.LESS_THAN_THRESHOLD,
+      datapointsToAlarm: 1,
+    });
+
+    new cdk.CfnOutput(this, "StopConditionArn", {
+      value: alarm.alarmArn,
+      description: "The Arn of the Stop-Conditioin CloudWatch Alarm",
+      exportName: "StopConditionArn",
+    });
+   
+    // FIS Setup
     // Create IAM permission policy
     const terminateEc2 = new iam.PolicyDocument({
       statements: [
@@ -89,9 +122,9 @@ export class CdkChaosStack extends cdk.Stack {
           actions: ['ec2:TerminateInstances'],
         }),
       ],
-    });
+    }); 
 
-    // Create IAM role for FIS
+   // Create IAM role for FIS
     const role = new iam.Role(this, 'ec2-terminate-role', {
       assumedBy: new iam.ServicePrincipal('fis.amazonaws.com'),
       description: 'IAM role to allow EC2 termination',
@@ -100,9 +133,53 @@ export class CdkChaosStack extends cdk.Stack {
       },
     });
 
-    // Output Loadbalancer DNS name
-    new cdk.CfnOutput(this, 'albDNS', {
-      value: lb.loadBalancerDnsName,
+
+    // FIS Target, all instances inside ASG 
+    const TargetAllInstancesASG: fis.CfnExperimentTemplate.ExperimentTemplateTargetProperty =
+      {
+        resourceType: "aws:ec2:instance",
+        selectionMode: "ALL",
+        resourceTags: {
+          "aws:autoscaling:groupName": asg.toString(),
+        },
+        filters: [
+          {
+            path: "State.Name",
+            values: ["running"],
+          },
+        ],
+      };    
+
+    // FIS Action, terminate instance inside ASG
+    const terminateInstanceAction: fis.CfnExperimentTemplate.ExperimentTemplateActionProperty =
+      {
+        actionId: "aws:ec2:terminate-instances",
+        parameters: {},
+        targets: {
+          Instances: "instanceTargets",
+        },
+      };
+
+    // FIS Experiment, EC2 Instance termination
+   const TerminateInstances = new fis.CfnExperimentTemplate(this, "fis-terminate instaces", {
+      description: "EC2 instances are kill",
+      tags: {
+        Name: "Kill EC2 instances in ASG",
+        Stackname: this.stackName,
+      },
+      roleArn: role.roleArn,
+      stopConditions: [
+        {
+          source: "aws:cloudwatch:alarm",
+          value: alarm.alarmArn,
+        },
+      ],
+      targets: {
+        instanceTargets: TargetAllInstancesASG,
+      },
+      actions: {
+        instanceActions: terminateInstanceAction,
+      },
     });
   }
 }
