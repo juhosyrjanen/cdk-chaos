@@ -93,14 +93,14 @@ export class CdkChaosStack extends cdk.Stack {
     // FIS Stop Condition
 
     const alarm = new cw.Alarm(this, "cw-alarm", {
-      alarmName: "NetworkInAbnormal",
+      alarmName: "Ec2GroupMinSizeReached",
       metric: new cw.Metric({
-        metricName: "NetworkIn",
-        namespace: "AWS/EC2",
+        metricName: "GroupTerminatingInstances",
+        namespace: "AWS/AutoScaling",
       }).with({
-        period: cdk.Duration.seconds(60),
+        period: cdk.Duration.seconds(10),
       }),
-      threshold: 10,
+      threshold: 2,
       evaluationPeriods: 1,
       treatMissingData: cw.TreatMissingData.NOT_BREACHING,
       comparisonOperator: cw.ComparisonOperator.LESS_THAN_THRESHOLD,
