@@ -8,7 +8,7 @@ This project uses Typescript as the language for CDK. The stack is defined in ``
 
 - A basic AWS VPC along with its subnets and default routes.
 - An AutoScaling group with EC2 instances running Amazon Linux with basic Apache webserver.
-- A CloudWatch metrics & alarm set to monitor minimum size of the AutoScaling Group.
+- A CloudWatch metrics & alarm set to monitor amout of instances terminating in the AutoScaling Group.
 - IAM role & policy to allow AWS FIS to terminate EC2 instaces
 
 The CDK code also defines AWS FIS with targets, actions and experiments to terminate EC2 instances inside the AutoScaling Group.
