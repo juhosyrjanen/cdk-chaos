@@ -44,7 +44,7 @@ export class CdkChaosStack extends cdk.Stack {
       machineImage: new ec2.AmazonLinuxImage({
         generation: ec2.AmazonLinuxGeneration.AMAZON_LINUX_2,
       }),
-      minCapacity: 2,
+      minCapacity: 3,
       maxCapacity: 5,
       // Send Metrics to CloudWatch
       groupMetrics: [autoscaling.GroupMetrics.all()],
@@ -133,9 +133,15 @@ export class CdkChaosStack extends cdk.Stack {
       },
     });
 
+    // Pick out random AZ used in the stack
+    //const availabilityZones = CdkChaosStack.of(this).availabilityZones;
+    //const randomAZ=
+    //  availabilityZones[Math.floor(Math.random() * availabilityZones.length)];
 
-    // FIS Target, all instances inside ASG 
-    const TargetAllInstancesASG: fis.CfnExperimentTemplate.ExperimentTemplateTargetProperty =
+    const EuNorth1b = 'eu-north-1b'
+
+    // FIS Target, simulate eu-north-1b failure
+    const TargetInstancesASG: fis.CfnExperimentTemplate.ExperimentTemplateTargetProperty =
       {
         resourceType: "aws:ec2:instance",
         selectionMode: "ALL",
@@ -147,6 +153,10 @@ export class CdkChaosStack extends cdk.Stack {
             path: "State.Name",
             values: ["running"],
           },
+          {
+            path: "Placement.AvailabilityZone",
+            values: [EuNorth1b]
+          }
         ],
       };    
 
@@ -175,7 +185,7 @@ export class CdkChaosStack extends cdk.Stack {
         },
       ],
       targets: {
-        instanceTargets: TargetAllInstancesASG,
+        instanceTargets: TargetInstancesASG,
       },
       actions: {
         instanceActions: terminateInstanceAction,
