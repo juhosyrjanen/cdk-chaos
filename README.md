@@ -1,6 +1,6 @@
-# Chaos testing AWS infra
+# Chaos testing AWS infra with AWS FIS
 
-> This project uses AWS CDK to define and deploy AWS infrastructure. Using AWS Fault Injection Simulator (FIS), this project simulates errors in the infrastrucrture in the pipeline after changes are made to the code.
+> This project uses AWS CDK to define and deploy AWS infrastructure. Using AWS Fault Injection Simulator (FIS), this project simulates errors in one AZ.
 
 This project uses Typescript as the language for CDK. The stack is defined in ``lib/cdk-chaos-stack.ts``
 
